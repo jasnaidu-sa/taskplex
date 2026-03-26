@@ -239,7 +239,9 @@ Same as Standard route.
 
 **Git notes**: No incremental commits. One commit at completion.
 
-3. **Validate**: Read validation section below.
+3. **Build gate** (after all agents return): Run typecheck + lint + tests. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
+
+4. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation runs once after all workers complete and build gate passes.
 
 ---
 
@@ -321,7 +323,9 @@ If triggered:
    2. If conflict: attempt auto-resolve, else report to user
    3. Worker commits: `git commit -m "wip(worker-{N}): {section}"`
 
-5. **Validate**: Read validation section below.
+5. **Build gate** (after merge): Run typecheck + lint + tests on merged result. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
+
+6. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation (security, closure, code review, hardening, compliance) runs once after all workers are merged and build gate passes.
 
 ---
 
@@ -451,7 +455,7 @@ For each wave (0, 1, 2, ...):
    - Every agent MUST use `isolation: "worktree"`
    - After all return: merge, update state, proceed to next wave immediately
 
-### Initiative Phase 4: Wave Merge
+### Initiative Phase 4: Wave Merge + Wave Validation
 
 After each wave completes:
 1. List completed feature branches
@@ -461,8 +465,16 @@ After each wave completes:
      Context: source branch, target branch, conflict files, feature descriptions
      Returns: "Merge resolved: {N} files. Typecheck: PASS/FAIL"
    - If unresolvable: mark as `blocked:merge-conflict`, notify user
-4. Run typecheck + lint on merged result
+
+4. **Wave validation (build gate)** — catches broken foundations before next wave builds on them:
+   - Run typecheck (from `manifest.buildCommands.typecheck`)
+   - Run lint (from `manifest.buildCommands.lint`)
+   - Run tests (from `manifest.buildCommands.test`) — **critical**: if Wave 0 breaks tests, Wave 1 must not proceed
+   - If any fail: spawn build-fixer (max rounds per policy). If still failing after limit, mark wave as `blocked:build-failure`, stop wave execution, present to user.
+
 5. Update prd-state.json: wave status = `completed`
+
+**Wave validation is a build gate, not full validation.** It checks: does the merged code compile, pass lint, and pass tests? It does NOT run security review, closure, code review, hardening, or compliance — those run once at the end.
 
 ### Initiative Phase 5: Finalization
 
@@ -472,9 +484,9 @@ After each wave completes:
      Writes: .claude-task/PRD-{id}/reviews/cross-feature-closure.md
      Returns: "PASS" | "FAIL: {what's missing}"
 
-   If FAIL: report to user before per-feature validation.
+   If FAIL: report to user before full validation.
 
-2. Run full Validation Pipeline
+2. **Full Validation Pipeline** — runs ONCE after all waves complete. This is where security review, closure, code review, hardening, and compliance run. See `~/.claude/taskplex/phases/validation.md`.
 3. Generate completion report
 4. If git available: create comprehensive PR covering the entire initiative
 5. Present to user
