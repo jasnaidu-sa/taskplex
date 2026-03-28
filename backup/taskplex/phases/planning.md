@@ -72,14 +72,51 @@ The user trusted the plan when they approved it. Implementation executes that pl
 
 ---
 
+## Memplex Context Assembly (before every agent spawn)
+
+**If `manifest.memplexAvailable === true`**, the orchestrator assembles memplex context before spawning any agent. Agents cannot call MCP tools — they start from zero unless the orchestrator hydrates them.
+
+**Assembly process** (per agent, before spawn):
+1. Identify the agent's primary files (from spec, worker brief, or file ownership)
+2. For each primary file (max 3):
+   - `file_intelligence(file)` — coupled files, known issues, change patterns
+   - `get_error_resolution(file)` — previously solved errors
+3. `search_knowledge` scoped to the agent's section/task — patterns, decisions, corrections
+4. Format results into a "Known Context" block and include in the agent's prompt
+
+**Assembly template** (include in agent prompt after the spec/brief reference):
+```markdown
+## Known Context (from project memory)
+
+### File Intelligence
+- **{file}**: Coupled with {list}. Known issues: {list or "none"}.
+
+### Error Resolutions
+- **{error pattern}** in {file}:{line} — Resolution: {fix description}
+
+### Relevant Knowledge
+- {Pattern, decision, or convention relevant to this work}
+
+### Corrections
+- {Past corrections about this area}
+```
+
+**Budget**: Max 5-9 MCP calls per agent spawn (3 file_intelligence + 3 get_error_resolution + 1 search_knowledge + optional get_file_coupling). Should take < 5 seconds.
+
+**If `manifest.memplexAvailable === false`**: Skip entirely. The "Known Context" block is omitted from the prompt. No placeholder, no note. The agent receives spec, brief, and conventions only.
+
+---
+
 ## Standard Route
 
 ### Phase A: Planning Agent
 
 Spawn the planning agent to design the implementation. The planning agent talks directly to the user (Option A) — the orchestrator is dormant during this phase.
 
+**Before spawning**: Run Memplex Context Assembly (see section above) for the target area files from brief.md.
+
 > Spawn planning-agent (sonnet) from ~/.claude/agents/core/planning-agent.md
-  Context: brief.md path, taskId, designDepth, qualityProfile
+  Context: brief.md path, taskId, designDepth, qualityProfile + Known Context block (if memplex available)
   Writes: .claude-task/{taskId}/spec.md, .claude-task/{taskId}/conventions-snapshot.json
   Returns: "PLANNING COMPLETE. Spec: {path}. Files affected: {N}. Key decisions: {bullets}"
 
@@ -132,9 +169,10 @@ Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.exe
    - Compaction guard monitors context growth
    - If compaction guard triggers: delegate to implementation agent
 
-2. **Standard+ profile**: Spawn implementation agent:
+2. **Standard+ profile**: Spawn implementation agent.
+   **Before spawning**: Run Memplex Context Assembly for the spec's primary files.
    > Spawn implementation-agent (sonnet) from ~/.claude/agents/core/implementation-agent.md
-     Context: "Read your spec at .claude-task/{taskId}/spec.md. Implement the plan." + file_intelligence per primary file
+     Context: "Read your spec at .claude-task/{taskId}/spec.md. Implement the plan." + Known Context block (if memplex available)
      max_turns: 25
      Writes: source code changes, deferred items
      Returns: "STATUS: completed|blocked. FILES_MODIFIED: [...]. BUILD: pass|fail."
@@ -222,8 +260,10 @@ Same as Standard route.
    }
    ```
 
+   **Before spawning each agent**: Run Memplex Context Assembly for that section's primary files.
+
    > Spawn implementation-agent (sonnet) from ~/.claude/agents/core/implementation-agent.md
-     Context: "Read spec at .claude-task/{taskId}/spec.md, section: {section-id}. Read file-ownership at .claude-task/{taskId}/file-ownership.json." + file_intelligence per primary file
+     Context: "Read spec at .claude-task/{taskId}/spec.md, section: {section-id}. Read file-ownership at .claude-task/{taskId}/file-ownership.json." + Known Context block (if memplex available)
      max_turns: 25
      Writes: source code changes, deferred items, workers/{workerId}.json
      Returns: "STATUS: completed|blocked. FILES_MODIFIED: [...]. BUILD: pass|fail."
@@ -258,8 +298,10 @@ Same as Standard route.
 2. **Architect Design Review**:
    The architect agent's design loop includes strategic and tactical review internally. Critics are NOT separate agent spawns — they are part of the architect's reasoning process.
 
+   **Before spawning**: Run Memplex Context Assembly for the target area files from brief.md.
+
    > Spawn architect (opus) from ~/.claude/agents/core/architect.md
-     Context: brief.md, architecture decisions, CONVENTIONS.md, CLAUDE.md, .schema/ docs, cm prior knowledge, qualityProfile
+     Context: brief.md, architecture decisions, CONVENTIONS.md, CLAUDE.md, .schema/ docs, qualityProfile + Known Context block (if memplex available)
      Writes: .claude-task/{taskId}/architecture.md, .claude-task/{taskId}/spec.md, .claude-task/{taskId}/file-ownership.json, .claude-task/{taskId}/workers/worker-{n}-brief.md
      Returns: "Architecture designed. {N} components, {M} files affected."
 
@@ -308,9 +350,11 @@ If triggered:
    Agent({ prompt: "worker-2 (depends on worker-1)...", isolation: "worktree" })
    ```
 
+   **Before spawning**: Run Memplex Context Assembly for each worker's primary files (from worker brief).
+
    Each agent:
    > Spawn implementation-agent (sonnet) from ~/.claude/agents/core/implementation-agent.md
-     Context: "Read your brief at .claude-task/{taskId}/workers/worker-{n}-brief.md. Implement the plan." + file_intelligence per primary file
+     Context: "Read your brief at .claude-task/{taskId}/workers/worker-{n}-brief.md. Implement the plan." + Known Context block (if memplex available)
      max_turns: 30
      **isolation: "worktree"** ← MANDATORY for Blueprint
      Writes: source code changes, deferred items

@@ -476,6 +476,41 @@
       "default": false,
       "description": "Set in Phase -0.5 when convention discovery runs in background. Cleared after task completion when user reviews drafts."
     },
+    "memplexAvailable": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether memplex MCP tools were detected at task init (Step 3a)"
+    },
+    "memplexNoticeShown": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the first-task capability notice was shown (once per project)"
+    },
+    "memplexContext": {
+      "type": ["object", "null"],
+      "default": null,
+      "description": "Context retrieved from memplex during this task, organized by phase",
+      "properties": {
+        "init": { "type": "object", "description": "Initial knowledge search results" },
+        "conventionCheck": { "type": "object", "description": "Conventions from past tasks" },
+        "intentExploration": { "type": "object", "description": "Past decisions, rejected approaches" },
+        "planning": { "type": "object", "description": "File coupling, patterns for planning" },
+        "implementation": { "type": "object", "description": "Per-agent assembled context" },
+        "qa": { "type": "object", "description": "Error resolutions found during QA" },
+        "validation": { "type": "object", "description": "Error resolutions for build-fixer" }
+      }
+    },
+    "knowledgeSaved": {
+      "type": ["object", "null"],
+      "default": null,
+      "description": "Knowledge written to memplex at task completion",
+      "properties": {
+        "fileCouplings": { "type": "integer", "default": 0 },
+        "errorResolutions": { "type": "integer", "default": 0 },
+        "patterns": { "type": "integer", "default": 0 },
+        "decisions": { "type": "integer", "default": 0 }
+      }
+    },
     "failures": { "type": "array" },
     "sessionFile": { "type": ["string", "null"] },
     "createdAt": { "type": "string", "format": "date-time" },

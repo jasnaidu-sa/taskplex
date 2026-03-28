@@ -178,6 +178,27 @@ Mark each task `in_progress` when you start it, `completed` when done. This is w
    - If found: `AskUserQuestion` "Found in-progress task: {title}. Resume or start fresh?"
    - If resuming: the SessionStart hook has already injected recovery context
 
+## Step 3a: Detect Memplex Availability
+
+Check if memplex MCP tools are available. This determines whether cross-session knowledge (error resolutions, file coupling, past decisions) can be used throughout the workflow.
+
+```
+Check: Is mcp__mp__search_knowledge available?
+  → If yes: set manifest.memplexAvailable = true
+  → If no:  set manifest.memplexAvailable = false
+```
+
+**If available**, run an initial knowledge load:
+1. `search_knowledge` scoped to the task description — surfaces past decisions, patterns, and gotchas about this area
+2. Store results in `manifest.memplexContext.init` for use in subsequent phases
+
+**If not available**: continue. No error, no warning, no degradation. Memplex is an optional enhancement.
+
+**First-task notice** (once per project): If `memplexAvailable === false` and no prior `.claude-task/` directories exist (first task in project):
+> "TaskPlex will use codebase scanning for context gathering. For cross-session knowledge persistence (error resolutions, file coupling, past decisions), memplex is available as an optional enhancement."
+
+Set `manifest.memplexNoticeShown = true` to avoid repeating.
+
 ## Step 3b: PRD/Plan Detection
 
 **Only triggered by explicit user intent.** Do NOT scan for ambient PRD files in the project.

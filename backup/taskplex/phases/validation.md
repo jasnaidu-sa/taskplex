@@ -83,8 +83,9 @@ Run **resolved** build commands from `manifest.buildCommands`:
 ```
 
 If build fails:
+**Before spawning**: Run Memplex Context Assembly (see planning.md) for the failing files. Include error resolutions for the specific errors if memplex available.
 > Spawn build-fixer (sonnet) from ~/.claude/agents/utility/build-fixer.md
-  Context: error output, modified files, spec.md
+  Context: error output, modified files, spec.md + Known Context block (if memplex available)
   Returns: "Fixed {N} issues. Build: PASS|FAIL"
 
 Build-fix rounds capped by policy `limits.buildFixRounds`.
