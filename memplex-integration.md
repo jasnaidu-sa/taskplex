@@ -360,7 +360,7 @@ The "Known Context" block is omitted from the prompt. The agent receives spec, b
 
 ---
 
-## 8. Implementation Priority
+## 8. Implementation Priority — Memplex Integration
 
 | Integration | Impact | Effort | Priority |
 |---|---|---|---|
@@ -371,3 +371,125 @@ The "Known Context" block is omitted from the prompt. The agent receives spec, b
 | Error resolution in build-fixer (2.7) | Medium — fewer fix rounds | Low — pre-spawn assembly | Do fifth |
 | QA error matching (2.6) | Low — QA bugs rarely repeat | Low — one call per bug | Do sixth |
 | Bootstrap enhancement (2.1) | Low — runs once per project | Low — one call | Do last |
+
+---
+
+## 9. Additional Work — TaskPlex Feature Roadmap
+
+Beyond memplex integration, the following features were identified from the research synthesis (source: `memwright/docs/MEMORY-AND-SKILLS-UPGRADE-RECOMMENDATIONS.md`, Part 4). These are independent of memplex but complement the integration work.
+
+### 9.1 Skill Evolution (from JiuwenClaw) — Do Second
+
+**What**: Feedback-driven skill improvement pipeline. When a task fails or the user corrects a skill's output, the correction is captured, attributed to the skill, and used to generate an improvement — without modifying the skill's source file.
+
+**Why this matters**: Skills are currently static `.md` files. They never improve from experience. JiuwenClaw is the only system with a working skill evolution pipeline. TaskPlex integrating this with memplex's knowledge graph (corrections attributed to skills) would be a genuine competitive differentiator.
+
+**Pipeline**:
+```
+Signal Detection (passive, no LLM cost):
+  ├── Execution failures: task failed, tool error, timeout
+  └── User corrections: "that's wrong", "not what I wanted"
+       │
+       ▼
+Attribution (which skill was active?):
+  → Link to memplex correction entity + active skill context
+  → Without memplex: attribute to active skill from manifest
+       │
+       ▼
+Skill Optimization (LLM call):
+  → Current SKILL.md + attributed failures/corrections
+  → LLM generates improvement entry
+       │
+       ▼
+Staged Rollout (evolutions.json):
+  → Loaded before next skill invocation
+  → Skill improves immediately without modifying source
+       │
+       ▼
+Solidification (user-approved):
+  → /solidify merges evolutions into SKILL.md
+  → Permanent improvement
+```
+
+**Key design decisions**:
+- SignalDetector is keyword-based (no LLM cost) — "error", "timeout", "failed", "that's wrong", "you misunderstood"
+- Evolution entries go to `evolutions.json` NOT directly to SKILL.md (staged rollout — reversible)
+- Two evolution types: Troubleshooting (from failures) and Examples (from corrections)
+- With memplex: corrections are attributed to specific skills via the knowledge graph
+- Without memplex: corrections are attributed via `manifest.activeSkill` at the time of correction
+
+**Integration point in TaskPlex**: Completion phase (after validation passes). The orchestrator checks for corrections/failures from this task and generates evolution entries if a skill was involved.
+
+**Effort**: 1-2 weeks. New files: `evolutions.json` schema, signal detector logic (keyword-based), evolution generator (LLM call), `/solidify` command.
+
+### 9.2 Goal Traceability (from Paperclip) — Simplified
+
+**What**: Every task traces its acceptance criteria back to INTENT.md success criteria. Not the full 5-level hierarchy (`task → milestone → project → initiative → goal`) — a simpler version that works with TaskPlex's one-task-at-a-time model.
+
+**Why this matters**: Without goal traceability, tasks become disconnected from project purpose. An agent doesn't know *why* it's building something, which means it can't make good judgment calls when things go wrong or scope decisions arise.
+
+**Simplified implementation**:
+- During design phase (Sub-phase B), when writing brief.md, map each acceptance criterion to an INTENT.md success criterion
+- Store mapping in `manifest.goalTraceability`:
+  ```json
+  {
+    "AC-1.1": { "intentCriteria": "Users can authenticate in < 3 seconds", "source": "INTENT.md#success-criteria" },
+    "AC-1.2": { "intentCriteria": "Zero credential exposure", "source": "INTENT.md#quality-priorities" }
+  }
+  ```
+- Closure agent verifies: every AC traces to an intent criterion, no orphan ACs
+- If INTENT.md doesn't exist: skip traceability (no degradation — it's optional context)
+
+**Why not the full hierarchy**: TaskPlex runs one task at a time in a session. There's no persistent task manager, no milestone tracking, no project board. The hierarchy (`task → milestone → project → initiative → goal`) assumes infrastructure that doesn't exist. The simplified version — linking ACs to INTENT.md — gives 80% of the value with zero new infrastructure.
+
+**Effort**: 3-5 days. Changes: brief.md template, closure-agent checks, manifest schema addition.
+
+### 9.3 Skill Performance Tracking — Deferred
+
+**What**: Track success/failure rates per skill per agent. Route tasks to agents with the best track record for a given skill.
+
+**Why deferred**: This only matters when multiple agents compete for the same tasks. TaskPlex currently assigns agents by model tier (opus for architect, sonnet for implementation, haiku for fast checks). There's no agent pool to route within. When team/blueprint mode becomes the default and agent capabilities diverge, this becomes relevant.
+
+**What to build when ready**:
+- `skill_performance` table: `(skill_id, agent_id, attempts, successes, failures, avg_duration)`
+- Updated after each task completion
+- Skill assignment considers performance history
+- Memplex stores the *why* behind failures (from corrections)
+
+**Effort**: 3-5 days. Depends on skill evolution (9.1) being built first.
+
+### 9.4 Issue Relations and Dependencies — Deferred
+
+**What**: Tasks can have typed relationships: `blocks`, `blocked_by`, `related`, `duplicate`.
+
+**Why deferred**: Already partially covered by `prd-state.json` for initiative mode (features have dependencies, waves enforce ordering). For single tasks there are no cross-task relationships. The `workerHandoffs[]` array handles intra-task agent dependencies.
+
+**What to build when ready**:
+- `task_relations` in manifest: `(task_id, related_task_id, relation_type)`
+- Four types: blocks, blocked_by, related, duplicate
+- When an agent picks up a task, show its blockers
+- Duplicate detection: memplex entity dedup could flag similar tasks across projects
+
+**Effort**: 2-3 days. Independent of other features.
+
+---
+
+## 10. Combined Roadmap
+
+All work items across memplex integration and feature development, in recommended order:
+
+| # | Work Item | Category | Priority | Effort | Depends On |
+|---|-----------|----------|----------|--------|------------|
+| 1 | Pre-spawn context assembly | Memplex integration | High | Medium | Nothing |
+| 2 | Knowledge persistence at completion | Memplex integration | High | Low | Nothing |
+| 3 | Skill evolution pipeline | Feature | High | 1-2 weeks | Nothing (memplex optional) |
+| 4 | Goal traceability (simplified) | Feature | High | 3-5 days | Nothing |
+| 5 | Convention check enhancement | Memplex integration | Medium | Low | #1 pattern established |
+| 6 | Intent exploration enhancement | Memplex integration | Medium | Low | #1 pattern established |
+| 7 | Error resolution in build-fixer | Memplex integration | Medium | Low | #1 pattern established |
+| 8 | QA error matching | Memplex integration | Low | Low | #1 pattern established |
+| 9 | Bootstrap enhancement | Memplex integration | Low | Low | Nothing |
+| 10 | Skill performance tracking | Feature | Deferred | 3-5 days | #3 skill evolution |
+| 11 | Issue relations/dependencies | Feature | Deferred | 2-3 days | Nothing |
+
+Items 1-4 are the high-value work. Items 5-9 are incremental memplex enhancements that follow naturally once the pre-spawn assembly pattern (#1) is established. Items 10-11 are future work that depends on TaskPlex usage patterns evolving toward multi-agent-as-default.
