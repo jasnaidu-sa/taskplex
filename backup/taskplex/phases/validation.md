@@ -370,7 +370,25 @@ Build PR title and body (tiered by profile). Create via `gh pr create`. Store `m
    - Present convention drafts to user if available
 2. Increment `tasks-since-refresh` counter in CONVENTIONS.md
 3. **Project phase transition**: If PRD complete, set `project-phase: established`
-4. If cm available: write knowledge (implementation summary, patterns, file coupling)
+4. **Memplex knowledge persistence** (if `manifest.memplexAvailable === true`):
+   Save knowledge discovered during this task for future sessions:
+
+   a. **File coupling**: For each set of files that were modified together (from `manifest.modifiedFiles`), write a coupling entry:
+      `write_knowledge({ type: "file_coupling", files: [...], project: "{project}", reason: "Modified together in TASK-{id}" })`
+
+   b. **Error resolutions**: For each error resolved during build-fix rounds (from `manifest.escalations` and build-fixer results), write a resolution:
+      `write_knowledge({ type: "error_resolution", error: "{pattern}", resolution: "{fix}", file: "{file}", project: "{project}" })`
+
+   c. **Patterns**: For significant architectural decisions from the design phase (from brief.md approach selection):
+      `write_knowledge({ type: "pattern", description: "{decision}", rationale: "{why}", area: "{target area}", project: "{project}" })`
+
+   d. **Decisions**: For user decisions that affect future tasks (from `manifest.designInteraction`):
+      `write_knowledge({ type: "decision", description: "{what was decided}", context: "{why}", project: "{project}" })`
+
+   Record counts in `manifest.knowledgeSaved`: `{ fileCouplings: N, errorResolutions: M, patterns: P, decisions: D }`
+
+   **If memplex not available**: Skip. No error, no degradation.
+
 5. Update session file: `status: "completed"`, `completedAt: ISO`, emit `task-complete` trace span
 6. Update manifest: `status: "completed"`, `phase: "validation"` (phase stays validation — no separate completion phase)
 7. **Product brief validation** (if `product/brief.md` exists):
@@ -414,6 +432,12 @@ Next steps:   {N} items need human verification
 Branch:  {branch} (from {baseBranch})
 Pushed:  yes/no
 PR:      {prUrl} (or "not created")
+
+{IF memplexAvailable AND knowledgeSaved:}
+Knowledge saved: {fileCouplings} file couplings, {errorResolutions} error resolutions, {patterns} patterns, {decisions} decisions
+
+{IF NOT memplexAvailable AND (modifiedFiles > 3 OR buildFixRounds > 0):}
+Patterns discovered: {N} file couplings, {M} error resolutions. Cross-session knowledge persistence requires memplex.
 ```
 
 **Profile additions**: Standard: + code review verdict. Enterprise: + readiness verdict + enterprise gates.
