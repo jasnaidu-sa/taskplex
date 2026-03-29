@@ -36,6 +36,12 @@ Single entry point for all development tasks.
 
 **The `tp-design-gate` hook WILL BLOCK your Edit/Write calls** if you try to write artifacts before reaching the required design sub-phase. The `tp-heartbeat` hook tracks every file edit. The `tp-pre-commit` hook blocks commits without validation. These are enforced — you cannot bypass them.
 
+### STEP 0.5: Load Skill Evolutions (if any)
+
+Check for `~/.claude/skills/taskplex/evolutions.json`. If it exists, read it and load active evolutions into your context. These are improvements learned from past task failures and corrections — apply them throughout this task.
+
+If no evolutions.json exists: skip. This is expected for new installations.
+
 ### STEP 1: Read the initialization phase file (MANDATORY)
 
 You MUST read this file IN FULL before doing anything else:

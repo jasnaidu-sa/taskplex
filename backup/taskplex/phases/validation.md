@@ -389,9 +389,30 @@ Build PR title and body (tiered by profile). Create via `gh pr create`. Store `m
 
    **If memplex not available**: Skip. No error, no degradation.
 
-5. Update session file: `status: "completed"`, `completedAt: ISO`, emit `task-complete` trace span
-6. Update manifest: `status: "completed"`, `phase: "validation"` (phase stays validation — no separate completion phase)
-7. **Product brief validation** (if `product/brief.md` exists):
+5. **Skill evolution** (if signals detected — see `~/.claude/taskplex/skill-evolution.md` for full spec):
+
+   **Signal detection** (keyword-based, no LLM cost):
+   - Check `manifest.iterationCounts.buildFixRounds >= 2`
+   - Check `manifest.escalations.length > 0`
+   - Check `manifest.qa.bugsFound > 2`
+   - Check `manifest.iterationCounts.reviewRounds.{any} > 1`
+   - Check for user correction patterns in design interaction history
+
+   **If signals exceed threshold AND `manifest.workflow` identifies an active skill:**
+   a. Determine skill name from `manifest.workflow` ("taskplex", "plan", "evaluate")
+   b. Read `~/.claude/skills/{skill}/skill.md` (or `SKILL.md`)
+   c. Read `~/.claude/skills/{skill}/evolutions.json` (if exists)
+   d. Generate evolution entry (LLM call — see skill-evolution.md for prompt template)
+   e. Write/append to `~/.claude/skills/{skill}/evolutions.json`
+   f. If memplex available: `write_knowledge` with the evolution for cross-session search
+   g. Record in manifest: `manifest.skillEvolution = { skill, evolutionId, type, signal }`
+   h. Note in task summary: "Skill evolution: {type} — {title}"
+
+   **If no signals exceed threshold**: Skip. Most tasks won't trigger evolution — this is by design.
+
+6. Update session file: `status: "completed"`, `completedAt: ISO`, emit `task-complete` trace span
+7. Update manifest: `status: "completed"`, `phase: "validation"` (phase stays validation — no separate completion phase)
+8. **Product brief validation** (if `product/brief.md` exists):
    Check whether a product brief exists at `product/brief.md` or `.claude-task/{taskId}/product/brief.md`.
    If found, suggest review via `AskUserQuestion`:
    > "A product brief exists for this area. Want to validate the implementation against it?
@@ -427,6 +448,9 @@ Overrides:    {N} user overrides logged
 
 {IF human checklist items:}
 Next steps:   {N} items need human verification
+
+{IF skillEvolution:}
+Skill evolution: {type} — {title} (run /solidify to review)
 
 {IF git:}
 Branch:  {branch} (from {baseBranch})

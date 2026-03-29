@@ -286,6 +286,18 @@
         }
       }
     },
+    "skillEvolution": {
+      "type": ["object", "null"],
+      "default": null,
+      "description": "Evolution generated from this task's signals. Created at completion if failure/correction signals exceed threshold.",
+      "properties": {
+        "skill": { "type": "string", "description": "Skill name that evolved" },
+        "evolutionId": { "type": "string", "description": "Evolution entry ID (evo-YYYYMMDD-NNN)" },
+        "type": { "type": "string", "enum": ["troubleshooting", "example"] },
+        "title": { "type": "string" },
+        "signal": { "type": "string", "description": "What triggered the evolution" }
+      }
+    },
     "planFile": { "type": ["string", "null"] },
     "planSource": {
       "type": "object",
