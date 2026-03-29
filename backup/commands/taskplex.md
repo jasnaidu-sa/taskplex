@@ -161,11 +161,13 @@ This file defines the full validation pipeline:
 📍 PHASE 4: PLANNING
   {✅|➡️|⬜} 4.1 Write spec.md (+ sections.json for team/blueprint)
   {✅|➡️|⬜} 4.2 Spec critic review
-  {✅|➡️|⬜} 4.3 Pre-implementation acknowledgment (user approves plan)
+  {✅|➡️|⬜} 4.3 Pre-implementation acknowledgment (user reviews full spec inline)
+  {✅|➡️|⬜} 4.4 Refine task list — replace placeholders with actual plan tasks
 
-📍 PHASE 5: IMPLEMENTATION
-  {✅|➡️|⬜} 5.1 Implementation (single agent or multi-agent per route)
-  {✅|➡️|⬜} 5.2 Build check (typecheck + lint)
+📍 PHASE 5: IMPLEMENTATION (tasks refined at 4.4 based on route + spec)
+  {✅|➡️|⬜} 5.1 Implementation (refined per route — see task list)
+  {✅|➡️|⬜} 5.2 Build gate (typecheck + lint + tests)
+  {✅|➡️|⬜} 5.3 Update documentation (if applicable)
 
 📍 PHASE 5.5: QA
   {✅|➡️|⬜} 5.5.1 Detect product type & QA strategy

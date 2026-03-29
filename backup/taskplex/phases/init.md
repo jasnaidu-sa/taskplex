@@ -140,7 +140,7 @@ After creating the session file, update `manifest.sessionFile` to the actual pat
 
 ## Step 2b: Create Task List (MANDATORY — enables progress tracking in conversation)
 
-**Immediately after creating the manifest and session file**, create the task list using `TaskCreate` for all major phases. This makes progress visible in the conversation UI throughout the task lifecycle.
+**Immediately after creating the manifest and session file**, create the task list using `TaskCreate` for the high-level workflow phases. These are the initial shape — they get refined after the plan is written (see Phase A.3 in planning.md).
 
 **For full design depth**, create these tasks:
 1. "Initialize task — parse flags, create manifest, load context" (mark `in_progress`)
@@ -148,21 +148,23 @@ After creating the session file, update `manifest.sessionFile` to the actual pat
 3. "Intent exploration — synthesize context, confirm with user, resolve gaps"
 4. "Write brief.md — approaches, section approval, write approved design"
 5. "Planning — write spec, critic review, user acknowledges plan"
-6. "Implementation — dispatch agents, build check"
-7. "QA — smoke test, journey walkthrough, edge cases, bug fixes"
-8. "Validation — security, closure, code review, hardening, compliance"
+6. "Implementation" (placeholder — refined after plan is approved)
+7. "QA" (placeholder — refined after implementation scope is known)
+8. "Validation" (placeholder — refined after implementation)
 9. "Completion — git commit, PR, task summary"
 
 **For light design depth**, create these tasks:
 1. "Initialize task" (mark `in_progress`)
 2. "Design (light) — synthesize, confirm, write brief"
 3. "Planning — write spec, critic review, user acknowledges"
-4. "Implementation — dispatch agents, build check"
-5. "QA — smoke test, journey walkthrough"
-6. "Validation — security, closure, code review, compliance"
+4. "Implementation" (placeholder — refined after plan)
+5. "QA" (placeholder)
+6. "Validation" (placeholder)
 7. "Completion — git commit, PR, task summary"
 
 Mark each task `in_progress` when you start it, `completed` when done. This is what the user sees in the conversation — it must stay current.
+
+**Task list refinement happens at Phase A.3** (Pre-Implementation Acknowledgment in planning.md). After the user approves the plan, replace placeholder tasks with specific ones based on the actual spec, route, and scope.
 
 **On session resume**: The `tp-session-start` hook will instruct you to recreate tasks from `manifest.phaseChecklist`. Follow that instruction before doing any other work.
 

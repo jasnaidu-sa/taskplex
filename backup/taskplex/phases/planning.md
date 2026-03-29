@@ -188,6 +188,40 @@ Track in `manifest.iterationCounts.reviewRounds.specCritic`.
 
 Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.executionAuthorized = true`.
 
+### Phase A.4: Refine Task List (MANDATORY — after user approves plan)
+
+Now that the plan is concrete, replace the placeholder tasks from init Step 2b with specific tasks based on the actual spec, route, and scope. Use `TaskUpdate` to update existing placeholders and `TaskCreate` for new tasks.
+
+**For Standard route:**
+- Update "Implementation" → "Implementation — {N} files per spec"
+- Add: "Build check — typecheck + lint + tests"
+- Add: "Update documentation — README, API docs, migration notes (if applicable)"
+
+**For Team route:**
+- Update "Implementation" → "Dispatch {N} workers — {section summaries}"
+- Add one task per worker section: "Worker {N}: {section title} — {file count} files"
+- Add: "Merge workers + build gate"
+- Add: "Update documentation"
+
+**For Blueprint route:**
+- Update "Implementation" → "Architecture review + {N} worktree workers"
+- Add: "Present architecture to user"
+- Add one task per worker: "Worker {N}: {section title} (worktree)"
+- Add: "Merge worktrees + build gate"
+- Add: "Update documentation"
+
+**Refine QA and Validation placeholders:**
+- Update "QA" → "QA — {method} ({product type})" (e.g., "QA — browser walkthrough (web app)")
+- Update "Validation" → "Validation — {profile} profile ({N} gates)"
+
+**Documentation task detail** — based on what the spec modifies:
+- API endpoints changed? → "Update API documentation"
+- New feature? → "Update README with feature description"
+- Config/env changes? → "Update setup instructions"
+- DB schema changes? → "Update migration notes"
+- CHANGELOG exists? → "Add CHANGELOG entry"
+- If nothing needs docs: skip the docs task
+
 ### Phase B: Implementation
 
 **⚠️ Set `manifest.implementationDelegated = true`** immediately for Standard route (orchestrator may implement inline for lean, or delegates to a single agent). The implementation gate hook allows orchestrator edits when this flag is set.
@@ -204,13 +238,22 @@ Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.exe
      Writes: source code changes, deferred items
      Returns: "STATUS: completed|blocked. FILES_MODIFIED: [...]. BUILD: pass|fail."
 
-3. **Build check**: Run typecheck + lint. Build-fix rounds per policy `limits.buildFixRounds`.
+3. **Build check**: Run typecheck + lint + tests. Build-fix rounds per policy `limits.buildFixRounds`.
 
 4. **Convention scan** (lean only): Read conventions.json or CONVENTIONS.md. Grep modified files for violations. Fix inline. Budget: 3-6 Grep calls.
 
+5. **Update documentation** (if docs task exists in task list):
+   Based on `manifest.modifiedFiles`, update relevant documentation:
+   - API routes modified → update API docs (README, OpenAPI spec, or dedicated docs)
+   - New feature added → add to README features section
+   - Config/env changed → update setup/installation instructions
+   - DB schema changed → update migration notes
+   - CHANGELOG exists → add entry for this change
+   - Mark the docs task as `completed` when done. If no docs needed, mark as `completed` with note "no docs changes required".
+
 **Git notes**: No incremental commits. One commit at completion.
 
-5. **Validate**: Read validation section below.
+6. **Proceed to QA**: Read `~/.claude/taskplex/phases/qa.md`
 
 ---
 
@@ -308,7 +351,9 @@ Same as Standard route.
 
 3. **Build gate** (after all agents return): Run typecheck + lint + tests. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
 
-4. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation runs once after all workers complete and build gate passes.
+4. **Update documentation** (same as Standard route step 5 — update docs based on modified files).
+
+5. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation runs once after all workers complete and build gate passes.
 
 ---
 
@@ -417,7 +462,9 @@ If triggered:
 
 5. **Build gate** (after merge): Run typecheck + lint + tests on merged result. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
 
-6. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation (security, closure, code review, hardening, compliance) runs once after all workers are merged and build gate passes.
+6. **Update documentation** (same as Standard route step 5 — update docs based on modified files).
+
+7. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation (security, closure, code review, hardening, compliance) runs once after all workers are merged and build gate passes.
 
 ---
 
