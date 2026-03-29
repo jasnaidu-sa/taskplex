@@ -238,11 +238,22 @@ Now that the plan is concrete, replace the placeholder tasks from init Step 2b w
      Writes: source code changes, deferred items
      Returns: "STATUS: completed|blocked. FILES_MODIFIED: [...]. BUILD: pass|fail."
 
-3. **Build check**: Run typecheck + lint + tests. Build-fix rounds per policy `limits.buildFixRounds`.
+3. **Implementation coherence check** (fast, before build gate):
+   Verify the agent implemented what the spec asked for — catches design drift before it compounds.
+   > Spawn closure-agent (haiku) from ~/.claude/agents/core/closure-agent.md
+     Context: spec.md (relevant section), manifest.modifiedFiles, brief.md acceptance criteria
+     Scope: "Quick coherence check — does the implementation match the spec? Not a full closure review."
+     Returns: "COHERENT" or "DRIFT: {what's missing or wrong}"
 
-4. **Convention scan** (lean only): Read conventions.json or CONVENTIONS.md. Grep modified files for violations. Fix inline. Budget: 3-6 Grep calls.
+   - If **COHERENT**: proceed to build gate
+   - If **DRIFT**: feed drift description back to the implementation agent for ONE revision round, then re-check. Max 1 revision — if still drifting, log to `manifest.degradations` and proceed (full closure at validation will catch it)
+   - **Budget**: one haiku call (~2-3 seconds). Not a bottleneck.
 
-5. **Update documentation** (if docs task exists in task list):
+4. **Build gate**: Run typecheck + lint + tests. Build-fix rounds per policy `limits.buildFixRounds`.
+
+5. **Convention scan** (lean only): Read conventions.json or CONVENTIONS.md. Grep modified files for violations. Fix inline. Budget: 3-6 Grep calls.
+
+6. **Update documentation** (if docs task exists in task list):
    Based on `manifest.modifiedFiles`, update relevant documentation:
    - API routes modified → update API docs (README, OpenAPI spec, or dedicated docs)
    - New feature added → add to README features section
@@ -349,11 +360,17 @@ Same as Standard route.
 
 **Git notes**: No incremental commits. One commit at completion.
 
-3. **Build gate** (after all agents return): Run typecheck + lint + tests. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
+3. **Implementation coherence check** (per worker, fast):
+   For each completed worker, spawn a quick coherence check:
+   > Spawn closure-agent (haiku) — "Does worker {N}'s output match its spec section?"
+   - If DRIFT on any worker: one revision round for that worker, then proceed
+   - Workers can be coherence-checked in parallel (one haiku call each)
 
-4. **Update documentation** (same as Standard route step 5 — update docs based on modified files).
+4. **Build gate** (after all agents return + coherence verified): Run typecheck + lint + tests. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
 
-5. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation runs once after all workers complete and build gate passes.
+5. **Update documentation** (same as Standard route step 6 — update docs based on modified files).
+
+6. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation runs once after all workers complete and build gate passes.
 
 ---
 
@@ -455,14 +472,15 @@ If triggered:
 
    **After all agents are dispatched**, set `manifest.implementationDelegated = true`.
 
-   **Post-worker merge** (after all workers return):
-   1. Merge each worker branch: `git merge --no-ff worktree-{worker}`
-   2. If conflict: attempt auto-resolve, else report to user
-   3. Worker commits: `git commit -m "wip(worker-{N}): {section}"`
+   **Post-worker coherence check + merge** (after all workers return):
+   1. **Coherence check per worker** (before merge): For each completed worker, spawn closure-agent (haiku) to verify output matches its worker brief. If DRIFT: one revision round in the worktree, then proceed. Check workers in parallel.
+   2. Merge each worker branch: `git merge --no-ff worktree-{worker}`
+   3. If conflict: attempt auto-resolve, else report to user
+   4. Worker commits: `git commit -m "wip(worker-{N}): {section}"`
 
-5. **Build gate** (after merge): Run typecheck + lint + tests on merged result. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
+5. **Build gate** (after merge + coherence verified): Run typecheck + lint + tests on merged result. If failures, spawn build-fixer (max rounds per policy). This catches integration issues between workers before moving to QA.
 
-6. **Update documentation** (same as Standard route step 5 — update docs based on modified files).
+6. **Update documentation** (same as Standard route step 6 — update docs based on modified files).
 
 7. **Proceed to QA → Full Validation**: Read `~/.claude/taskplex/phases/qa.md`, then `~/.claude/taskplex/phases/validation.md`. Full validation (security, closure, code review, hardening, compliance) runs once after all workers are merged and build gate passes.
 

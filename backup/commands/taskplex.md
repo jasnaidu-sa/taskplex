@@ -166,8 +166,9 @@ This file defines the full validation pipeline:
 
 📍 PHASE 5: IMPLEMENTATION (tasks refined at 4.4 based on route + spec)
   {✅|➡️|⬜} 5.1 Implementation (refined per route — see task list)
-  {✅|➡️|⬜} 5.2 Build gate (typecheck + lint + tests)
-  {✅|➡️|⬜} 5.3 Update documentation (if applicable)
+  {✅|➡️|⬜} 5.2 Coherence check — verify code matches spec (haiku, fast)
+  {✅|➡️|⬜} 5.3 Build gate (typecheck + lint + tests)
+  {✅|➡️|⬜} 5.4 Update documentation (if applicable)
 
 📍 PHASE 5.5: QA
   {✅|➡️|⬜} 5.5.1 Detect product type & QA strategy
