@@ -1,8 +1,18 @@
 # taskplex: Planning & Implementation
 <!-- Loaded by orchestrator after initialization. Self-contained. -->
 <!-- v3: 3-route architecture (Standard/Team/Blueprint) with universal planning agent -->
+<!-- v4: Added progress visibility, inline artifact presentation, pre-spawn status messages -->
 
 **Policy reference**: `~/.claude/taskplex/policy.json` for iteration limits.
+
+## ⚠️ User Visibility Rules (HARD RULE — all routes)
+
+**The user must see what's happening at all times.**
+
+1. **Before every agent spawn**: Tell the user what agent is being spawned, what it will do, and roughly how long it takes.
+2. **After every agent returns**: Read the agent's output artifact and **present it in the conversation**. Do NOT say "review file X" — output the content inline where the user is reading.
+3. **Present artifacts section by section** for long outputs (spec, architecture). Let the user digest each part.
+4. **Never leave the user waiting with no information** for more than 30 seconds. If an agent is running, the pre-spawn message covers this. If you're doing research, say what you're looking at.
 
 **Manifest schema**: `~/.claude/taskplex/manifest-schema.json` — field definitions.
 
@@ -111,7 +121,9 @@ The user trusted the plan when they approved it. Implementation executes that pl
 
 ### Phase A: Planning Agent
 
-Spawn the planning agent to design the implementation. The planning agent talks directly to the user (Option A) — the orchestrator is dormant during this phase.
+**Pre-spawn status** (tell the user what's happening):
+> "Spawning the planning agent to design the implementation. This typically takes 3-8 minutes.
+> The agent will read the brief, analyze the target area, and write a detailed spec."
 
 **Before spawning**: Run Memplex Context Assembly (see section above) for the target area files from brief.md.
 
@@ -134,10 +146,14 @@ Set `manifest.planFile = "spec.md"`.
 - User explicitly requested research
 
 If triggered:
+> "Spawning researcher to investigate {topics}. This typically takes 2-5 minutes."
+
 > Spawn researcher (sonnet) from ~/.claude/agents/core/researcher.md
   Context: brief.md, spec.md, package.json deps, CONVENTIONS.md, research questions
   Writes: .claude-task/{taskId}/research/*.md
   Returns: "RESEARCH COMPLETE. Questions: N. Key findings: {bullets}"
+
+After researcher returns: **present key findings inline** (don't just say "research complete"). Summarize the findings that affect the plan.
 
 ### Phase A.2: Spec Critic (mandatory)
 
@@ -154,10 +170,21 @@ Track in `manifest.iterationCounts.reviewRounds.specCritic`.
 
 ### Phase A.3: Pre-Implementation Acknowledgment (MANDATORY)
 
-> `AskUserQuestion`: "Here's the plan:
-> {3-5 bullet points summarizing spec.md}
->
-> **Proceed** / **Discuss changes**"
+**Present the spec to the user — do NOT just summarize it.** The user should see what they're approving.
+
+1. Read `.claude-task/{taskId}/spec.md`
+2. **Present the full spec in the conversation**, section by section:
+   - Implementation approach and rationale
+   - Files to create/modify (with purpose of each)
+   - Key technical decisions
+   - Acceptance criteria mapping
+   - Testing strategy
+3. After presenting, ask:
+   > "This is the implementation plan. Review the approach, files, and decisions."
+   >
+   > **Proceed** / **Discuss changes** / **Revise specific sections**"
+
+**Do NOT** say "review spec.md" and point to a file. The spec content must be visible in the conversation where the user is reading.
 
 Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.executionAuthorized = true`.
 
@@ -298,6 +325,12 @@ Same as Standard route.
 2. **Architect Design Review**:
    The architect agent's design loop includes strategic and tactical review internally. Critics are NOT separate agent spawns — they are part of the architect's reasoning process.
 
+   **Pre-spawn status**:
+   > "Spawning the architect agent (opus). This typically takes 5-15 minutes for complex features.
+   > The architect will analyze the codebase, design the architecture, create a spec, and write
+   > worker briefs for each implementation section.
+   > You can check progress: `cat .claude-task/{taskId}/architecture.md`"
+
    **Before spawning**: Run Memplex Context Assembly for the target area files from brief.md.
 
    > Spawn architect (opus) from ~/.claude/agents/core/architect.md
@@ -309,7 +342,22 @@ Same as Standard route.
 
    **Path guardrails**: Architect writes ONLY to `.claude-task/{taskId}/`. Never to source paths.
 
-3. **Confirm Direction**: `AskUserQuestion`: "Architecture confirmed. Ready to proceed? **Proceed** / **Revisit** / **Cancel**"
+3. **Present architecture to user — do NOT just ask "ready to proceed?"**
+
+   After the architect returns:
+   a. Read `.claude-task/{taskId}/architecture.md`
+   b. Read `.claude-task/{taskId}/spec.md`
+   c. **Present the architecture in the conversation**, section by section:
+      - Architecture overview and component breakdown
+      - Key design decisions and trade-offs
+      - File ownership map (which worker handles what)
+      - Implementation approach per section
+   d. After presenting, ask:
+      > "This is the architecture and implementation plan. Review the approach and component breakdown."
+      >
+      > **Proceed** / **Revisit architecture** / **Modify specific sections** / **Cancel**"
+
+   **Do NOT** say "review architecture.md" and point to a file. Present the content inline.
 
 ### Phase B: Pre-Implementation Research (conditional)
 
