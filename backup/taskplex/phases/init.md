@@ -148,18 +148,18 @@ After creating the session file, update `manifest.sessionFile` to the actual pat
 3. "Intent exploration — synthesize context, confirm with user, resolve gaps"
 4. "Write brief.md — approaches, section approval, write approved design"
 5. "Planning — write spec, critic review, user acknowledges plan"
-6. "Implementation" (placeholder — refined after plan is approved)
-7. "QA" (placeholder — refined after implementation scope is known)
-8. "Validation" (placeholder — refined after implementation)
+6. "Implementation" (placeholder — refined after plan is approved at Phase A.4)
+7. "QA — smoke test, journey walkthrough, edge cases, bug fixes"
+8. "Validation — security, closure, code review, hardening, compliance"
 9. "Completion — git commit, PR, task summary"
 
 **For light design depth**, create these tasks:
 1. "Initialize task" (mark `in_progress`)
 2. "Design (light) — synthesize, confirm, write brief"
 3. "Planning — write spec, critic review, user acknowledges"
-4. "Implementation" (placeholder — refined after plan)
-5. "QA" (placeholder)
-6. "Validation" (placeholder)
+4. "Implementation" (placeholder — refined after plan is approved at Phase A.4)
+5. "QA — smoke test, journey walkthrough, edge cases, bug fixes"
+6. "Validation — security, closure, code review, compliance"
 7. "Completion — git commit, PR, task summary"
 
 Mark each task `in_progress` when you start it, `completed` when done. This is what the user sees in the conversation — it must stay current.
