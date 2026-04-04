@@ -291,6 +291,39 @@ Track in `manifest.iterationCounts.reviewRounds.specCritic`.
 
 Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.executionAuthorized = true`.
 
+### Phase A.3b: Verification Test Plan (Standard + Blueprint — skip for Light)
+
+**Before implementation begins**, the verification agent reads the spec and pre-commits what it will test. This creates a "sprint contract" — the implementation agent knows exactly what the verification agent will check, leading to better implementation.
+
+> Spawn verification-agent (sonnet) from $TASKPLEX_HOME/agents/core/verification-agent.md
+  Context: spec.md, brief.md — MODE: "test-plan" (not "verify")
+  Writes: .claude-task/{taskId}/test-plan.md
+  Returns: "Test plan: N happy path checks, P adversarial probes planned"
+
+The verification agent produces a **test plan** (not test execution):
+
+```markdown
+# Verification Test Plan
+
+## Happy Path Checks (will run after implementation)
+1. POST /api/register with valid data → expect 201 + user object
+2. POST /api/login with valid credentials → expect 200 + JWT
+3. Auth middleware rejects expired token → expect 401
+
+## Adversarial Probes (will run after implementation)
+1. [Boundary] POST /api/register with empty email → expect 400
+2. [Idempotency] POST /api/register same email twice → expect 409 or graceful no-op
+3. [Injection] POST /api/register with SQL in email → expect 400, no DB corruption
+4. [Auth] Access /api/protected without token → expect 401
+
+## Commands I Will Run
+- curl POST /api/register with valid/invalid payloads
+- curl POST /api/login with valid/expired/missing credentials
+- curl GET /api/protected with/without token
+```
+
+**Include the test plan in the implementation agent's context.** The implementation agent sees what will be tested and can build accordingly. This is not "teaching to the test" — it's making the acceptance criteria concrete and executable.
+
 ### Phase A.4: Refine Task List (MANDATORY — STOP and do this NOW)
 
 **You MUST refine the task list immediately after the user approves the plan.** Do NOT proceed to implementation until the task list reflects the actual plan. The generic "Implementation" placeholder must be replaced with specific tasks.

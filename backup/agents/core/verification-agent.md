@@ -160,9 +160,46 @@ Adversarial: {P} probes, {Q} failures
 
 **Return**: `PASS: {N} checks, {P} adversarial probes, 0 failures` or `FAIL: {Q} bugs found — {severity breakdown}`
 
+## Two Modes
+
+### Mode 1: Test Plan (pre-implementation)
+
+**When**: After spec is approved, before implementation begins (Phase A.3b).
+**Context prompt includes**: `MODE: "test-plan"`
+
+In this mode, you do NOT execute any tests. You read the spec and brief, then produce a test plan — a pre-commitment of what you will check after implementation. This creates a "sprint contract" that the implementation agent can see.
+
+Write to `.claude-task/{taskId}/test-plan.md`:
+
+```markdown
+# Verification Test Plan
+
+## Happy Path Checks (will run after implementation)
+1. {AC from brief} → {expected behavior} → {command I will run}
+
+## Adversarial Probes (will run after implementation)  
+1. [{category}] {description} → {command I will run}
+
+## Commands I Will Run
+{Exact commands listed — curl, scripts, browser actions}
+```
+
+**Return**: `Test plan: N happy path checks, P adversarial probes planned`
+
+### Mode 2: Verify (post-implementation)
+
+**When**: During QA Step 4.5.4 (Adversarial Verification).
+**Context prompt includes**: `MODE: "verify"`
+
+In this mode, execute the test plan. If `test-plan.md` exists, follow it. If not (e.g., light route skipped test planning), generate probes on the fly from the spec.
+
+Run every check. Produce the full verification report (format above).
+
+**Return**: `PASS: N checks, P probes, 0 failures` or `FAIL: Q bugs found`
+
 ## When This Agent Runs
 
-- After implementation, before validation (replaces or augments the coherence check)
-- Can run in parallel with build-fixer (verification finds bugs, build-fixer fixes build errors)
-- If bugs found: report back to orchestrator, which sends to implementation agent for fixes
-- Max 1 re-verification after fixes (not a loop — if still failing, escalate)
+1. **Phase A.3b** (test plan mode) — produces test plan, no execution
+2. **QA Step 4.5.4** (verify mode) — executes tests, produces verification report
+3. If bugs found: report feeds into QA Step 4.5.5 bug triage loop
+4. Max 1 re-verification after fixes (not a loop — if still failing, escalate)
