@@ -195,54 +195,25 @@ Update checklist: mark 4.5.3 complete.
 
 ---
 
-## Step 4.5.4: Adversarial Probing (MANDATORY — not optional spot-checking)
+## Step 4.5.4: Adversarial Verification (MANDATORY — spawns verification agent)
 
-After core journeys, actively try to break the implementation. This is not a gentle edge-case spot-check — it is adversarial testing. **At least 3 adversarial probes are required before any QA verdict.**
+Spawn the verification agent to actively try to break the implementation. This is not inline spot-checking — it's a dedicated adversarial agent that runs commands, tests endpoints, and probes boundaries. It cannot edit files.
 
-**Anti-rationalization**: If you feel the urge to skip probes because "the happy path passed" or "this probably handles edge cases" — that is exactly when probes matter most. The first 80% is easy. Your value is the last 20%.
+> Spawn verification-agent (sonnet) from $TASKPLEX_HOME/agents/core/verification-agent.md
+  Context: spec.md, brief.md, manifest.modifiedFiles, manifest.buildCommands, QA method (UI/CLI/API)
+  Writes: .claude-task/{taskId}/reviews/verification.md
+  Returns: "PASS: N checks, P probes, 0 failures" or "FAIL: Q bugs found"
 
-### Adversarial probe categories:
+The verification agent:
+- Runs happy path checks (must execute commands, not read code)
+- Runs at least 3 adversarial probes (boundary, concurrency, idempotency, injection, etc.)
+- Produces evidence in command+output format (code reading rejected)
+- Has anti-rationalization prompts to prevent skip-and-pass behavior
 
-| Category | What to try | Why it matters |
-|----------|-------------|---------------|
-| **Boundary values** | 0, -1, empty string, very long strings (10KB+), unicode, MAX_INT, null | Most common source of crashes |
-| **Concurrency** | Parallel requests to create-if-not-exists paths — duplicate records? race conditions? | Real-world multi-user behavior |
-| **Idempotency** | Same mutating request twice — duplicate created? error? correct no-op? | Retries and double-clicks |
-| **Orphan operations** | Delete/reference IDs that don't exist — graceful error or crash? | Stale links, out-of-order events |
-| **State persistence** | Refresh the page, restart the server — does state survive? | Most common user complaint |
-| **Auth boundary** | Access without auth, expired token, wrong role — proper rejection? | Security boundary |
-| **Input injection** | SQL injection, XSS, command injection in user inputs | Security critical |
-| **Error recovery** | Kill server mid-request, corrupt input, disk full simulation | Graceful degradation |
+**If PASS**: Proceed to Step 4.5.5 (bug triage — which may have 0 bugs).
+**If FAIL**: Bugs feed into Step 4.5.5 bug triage loop. The verification agent's findings are treated as blocker/major severity.
 
-### By product type:
-
-**UI App:** Submit empty forms, navigate to routes with no data, refresh during loading, hit back button mid-flow, open in two tabs and modify same data, submit form twice rapidly.
-
-**CLI:** Run with no args, run with invalid args, pipe in empty stdin, use very long arguments, interrupt with Ctrl+C, run two instances simultaneously.
-
-**API:** Send empty body, send invalid JSON, omit required fields, use wrong content type, send extremely long values, send concurrent identical POST requests, use expired/missing auth tokens.
-
-### Evidence format (MANDATORY):
-
-Every probe must show the command run and output observed. "I checked and it handles it" is NOT valid evidence.
-
-```
-### Probe: {category} — {description}
-**Command:** {exact command run}
-**Expected:** {what should happen}
-**Observed:** {what actually happened}
-**Result:** PASS | FAIL
-```
-
-### Record results:
-
-```markdown
-| Edge Case | Result | Notes |
-|-----------|--------|-------|
-| {scenario} | Pass/Fail | {what happened} |
-```
-
-Update manifest: increment `edgeCasesTested`, `bugsFound` for any failures.
+Update manifest: `manifest.qa.adversarialProbes = N`, `manifest.qa.adversarialFailures = M`.
 Update checklist: mark 4.5.4 complete.
 
 ---
