@@ -285,34 +285,6 @@ function renderProgress(taskPath, manifest) {
       lines.push('');
     }
 
-    if (done.length > 0) {
-      lines.push('## Completed');
-      for (const n of done) lines.push(`- [x] ${n.text}`);
-      lines.push('');
-    }
-
-    if (active.length > 0) {
-      lines.push('## In Progress');
-      for (const n of active) lines.push(`- [ ] **${n.text}**`);
-      lines.push('');
-    }
-
-    if (pending.length > 0) {
-      lines.push('## Pending');
-      for (const n of pending) lines.push(`- [ ] ${n.text}`);
-      lines.push('');
-    }
-
-    if (issues.length > 0) {
-      lines.push('## Issues');
-      for (const n of issues) lines.push(`- ⚠ ${n.text}`);
-      lines.push('');
-    }
-
-    if (manifest.modifiedFiles && manifest.modifiedFiles.length > 0) {
-      lines.push(`**Files modified:** ${manifest.modifiedFiles.length}`);
-    }
-
     // Wave progress summary
     if (manifest.waveProgress) {
       lines.push('');
