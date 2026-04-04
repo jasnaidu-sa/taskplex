@@ -8,12 +8,48 @@
 
 ## ⚠️ User Visibility Rules (HARD RULE — all routes)
 
-**The user must see what's happening at all times.**
+**The user must see what's happening at all times.** The chat window is where the user works — not files on disk.
 
 1. **Before every agent spawn**: Tell the user what agent is being spawned, what it will do, and roughly how long it takes.
-2. **After every agent returns**: Read the agent's output artifact and **present it in the conversation**. Do NOT say "review file X" — output the content inline where the user is reading.
-3. **Present artifacts section by section** for long outputs (spec, architecture). Let the user digest each part.
-4. **Never leave the user waiting with no information** for more than 30 seconds. If an agent is running, the pre-spawn message covers this. If you're doing research, say what you're looking at.
+2. **After every agent returns**: Present a **structured working summary** in the conversation — not the full artifact, not a 3-line terse summary.
+3. **Never say "review file X"** — present the content where the user is reading.
+4. **Never leave the user waiting with no information** for more than 30 seconds.
+
+### Presentation Detail by Phase
+
+| Phase | What to show in chat | Detail Level |
+|-------|---------------------|:---:|
+| **Design (Sub-phase B)** | Full context synthesis, questions, approaches, section approvals | High |
+| **Architecture (Blueprint)** | Component breakdown per wave, key decisions per section, intent coverage matrix | High |
+| **Spec/Planning** | Section summaries: what each section does, files involved, key decisions. Not full spec. | Medium |
+| **Implementation** | Per-worker status: "Worker 1 complete: auth module, 4 files, build passing" | Low |
+| **QA** | Journey results table, verification verdict, bugs found | Medium |
+| **Validation** | Gate verdicts (PASS/FAIL per gate), summary of findings | Low-Medium |
+
+### Structured Summary Format (for architecture + planning)
+
+When presenting the architecture or spec after an agent returns, use this format:
+
+```
+{Wave/Section Name}:
+  - {Component}: {what it does}. {N} files.
+    Key decisions: {1-2 critical choices}
+  - {Component}: {what it does}. {N} files.
+    Key decisions: {1-2 critical choices}
+
+Intent Coverage:
+  AC-1.1 {description} → {Wave}: {Component} ✓
+  AC-1.2 {description} → {Wave}: {Component} ✓
+  AC-2.1 {description} → NOT MAPPED ⚠️
+  Coverage: {mapped}/{total} ACs ({percentage}%)
+
+{If gaps}: "Warning: {N} acceptance criteria not mapped to any section. 
+Address before proceeding."
+
+Review each section — any changes?
+```
+
+This is ~20-30 lines for a typical architecture. Enough to review and give feedback. The full artifact is on disk for reference; the chat shows the working summary.
 
 **Manifest schema**: `~/.claude/taskplex/manifest-schema.json` — field definitions.
 
@@ -272,22 +308,42 @@ Track in `manifest.iterationCounts.reviewRounds.specCritic`.
 
 ### Phase A.3: Pre-Implementation Acknowledgment (MANDATORY)
 
-**Present the spec to the user — do NOT just summarize it.** The user should see what they're approving.
+**Present a structured working summary — not the full spec, not a 3-line summary.**
 
-1. Read `.claude-task/{taskId}/spec.md`
-2. **Present the full spec in the conversation**, section by section:
-   - Implementation approach and rationale
-   - Files to create/modify (with purpose of each)
-   - Section assignments for parallel workers
-   - Key technical decisions
-   - Acceptance criteria mapping
-   - Testing strategy
-3. After presenting, ask:
-   > "This is the implementation plan. Review the approach, files, and decisions."
+1. Read `.claude-task/{taskId}/spec.md` and `.claude-task/{taskId}/brief.md`
+
+2. **Build intent traceability matrix:**
+   - Extract all ACs from brief.md
+   - Map each AC to the spec section that addresses it
+   - Flag any unmapped ACs
+
+3. **Present in the conversation** using the structured summary format:
+
+   For each section/worker:
+   - What it does (1 sentence)
+   - Files involved (list)
+   - Key decisions (1-2 per section)
+   - Which ACs it addresses
+
+   Then show intent coverage:
+   ```
+   Intent Coverage:
+     AC-1.1 User login → Section 1: Auth ✓
+     AC-1.2 Bcrypt hashing → Section 1: Auth ✓
+     AC-2.1 Dashboard stats → Section 2: Dashboard ✓
+     Coverage: 3/3 ACs mapped (100%)
+   ```
+
+4. After presenting, ask:
+   > "Plan: {N} sections, {M} files. Intent coverage: {mapped}/{total} ACs.
+   > {If gaps: 'Warning: {unmapped ACs} not addressed.'}
    >
-   > **Proceed** / **Discuss changes** / **Revise specific sections**"
+   > **Proceed** / **Discuss changes** / **Revise sections**"
 
-**Do NOT** say "review spec.md" and point to a file. The spec content must be visible in the conversation where the user is reading.
+**Do NOT** dump the full spec.md. The structured summary IS the review surface.
+**Do NOT** say "review spec.md" and point to a file.
+
+Write intent matrix to `.claude-task/{taskId}/intent-traceability.md`.
 
 Set `planSource.userAcknowledged = true` and `workflowState.standardPlanning.executionAuthorized = true`.
 
@@ -582,22 +638,42 @@ Failure to update these fields means recovery after compaction will have stale s
 
    **Path guardrails**: Architect writes ONLY to `.claude-task/{taskId}/`. Never to source paths.
 
-3. **Present architecture to user — do NOT just ask "ready to proceed?"**
+3. **Build intent traceability matrix + present architecture to user**
 
    After the architect returns:
-   a. Read `.claude-task/{taskId}/architecture.md`
-   b. Read `.claude-task/{taskId}/spec.md`
-   c. **Present the architecture in the conversation**, section by section:
-      - Architecture overview and component breakdown
-      - Key design decisions and trade-offs
-      - File ownership map (which worker handles what)
-      - Implementation approach per section
-   d. After presenting, ask:
-      > "This is the architecture and implementation plan. Review the approach and component breakdown."
-      >
-      > **Proceed** / **Revisit architecture** / **Modify specific sections** / **Cancel**"
+   
+   **Step 3a — Intent traceability contract:**
+   a. Read `.claude-task/{taskId}/brief.md` — extract ALL acceptance criteria (AC-N.M)
+   b. Read `.claude-task/{taskId}/architecture.md` and `spec.md`
+   c. For each AC, find which wave/component/section addresses it
+   d. Build the matrix:
+      ```
+      Intent Coverage:
+        AC-1.1 User can login → Wave 0: Auth module ✓
+        AC-1.2 Bcrypt hashing → Wave 0: Auth module ✓
+        AC-2.1 Real-time stats → Wave 1: Dashboard ✓
+        AC-3.1 Rate limiting → NOT MAPPED ⚠️
+        Coverage: 3/4 ACs mapped (75%)
+      ```
+   e. If any AC is unmapped: flag it BEFORE presenting to user
+   f. Write matrix to `.claude-task/{taskId}/intent-traceability.md`
 
-   **Do NOT** say "review architecture.md" and point to a file. Present the content inline.
+   **Step 3b — Present structured summary:**
+   Use the format from User Visibility Rules. For each wave:
+   - Component name, what it does, file count
+   - Key decisions (1-2 per component)
+   - Which ACs it addresses
+   
+   Then show the intent coverage matrix.
+   
+   Then ask:
+   > "Architecture: {N} components across {W} waves. Intent coverage: {mapped}/{total} ACs.
+   > {If gaps: 'Warning: {unmapped ACs} not addressed — add to a wave or confirm deferred.'}
+   >
+   > **Proceed** / **Revisit architecture** / **Modify sections** / **Cancel**"
+
+   **Do NOT** dump the full architecture.md. Present the structured working summary.
+   **Do NOT** say "review architecture.md" — the summary IS the review surface.
 
 ### Phase B: Pre-Implementation Research (conditional)
 

@@ -13,7 +13,7 @@ disallowedTools:
   - NotebookEdit
   - Task
 outputStructure:
-  - Summary (returned to orchestrator, 8-15 lines)
+  - Summary (returned to orchestrator, structured working summary ~20-40 lines)
   - spec.md (written to disk)
   - conventions-snapshot.json (written to disk)
   - sections.json (written to disk, Team route only)
@@ -32,7 +32,7 @@ You are a **planning agent** that talks directly to the user (Option A) and writ
 1. Understand what the user wants (from brief.md + direct interaction)
 2. Design the implementation approach
 3. Write spec.md and supporting artifacts to disk
-4. Return a SHORT summary (8-15 lines) to the orchestrator
+4. Return a **structured working summary** (~20-40 lines) — not a terse 3-liner, not the full spec. Format: section name + what it does + files + key decisions + which ACs it addresses. The orchestrator presents this directly to the user.
 
 ## ⚠️ Interaction-First Principle (HARD RULE)
 

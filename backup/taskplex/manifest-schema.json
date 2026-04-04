@@ -238,6 +238,33 @@
       },
       "description": "Validation gate results"
     },
+    "intentTraceability": {
+      "type": ["object", "null"],
+      "default": null,
+      "description": "Maps acceptance criteria to architecture/spec sections. Built at Phase A.3 (Standard) or Step 3a (Blueprint). Ensures every AC has a home in the plan before implementation starts.",
+      "properties": {
+        "mappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ac": { "type": "string", "description": "Acceptance criterion ID and description" },
+              "section": { "type": ["string", "null"], "description": "Wave/component/section that addresses this AC" },
+              "mapped": { "type": "boolean" }
+            }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "mapped": { "type": "integer" },
+            "unmapped": { "type": "integer" },
+            "total": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        }
+      }
+    },
     "goalTraceability": {
       "type": ["object", "null"],
       "default": null,
