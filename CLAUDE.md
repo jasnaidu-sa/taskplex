@@ -97,19 +97,20 @@ Skills improve from task feedback via staged pipeline:
 
 ### Commands & Skills
 ```
-~/.claude/commands/ — taskplex.md, tp.md, plan.md, solidify.md
+~/.claude/commands/ — taskplex.md, tp.md, plan.md, solidify.md, drift.md
 ~/.claude/skills/evaluate/ — audit + review modes
 ~/.claude/skills/frontend/ — standalone frontend dev (design system, a11y, responsive, component spec)
 ~/.claude/skills/plan/ — planning trigger wrapper
 ```
 
-### Agents (17 core + 2 utility)
+### Agents (19 core + 3 utility)
 ```
-Core: architect, planning-agent, implementation-agent, security-reviewer,
-      closure-agent, code-reviewer, hardening-reviewer, database-reviewer,
-      e2e-reviewer, user-workflow-reviewer, compliance-agent, researcher,
-      merge-resolver, bootstrap, prd-bootstrap, strategic-critic, tactical-critic
-Utility: build-fixer, explore
+Core: architect, planning-agent, implementation-agent, verification-agent,
+      review-standards (shared reference), security-reviewer, closure-agent,
+      code-reviewer, hardening-reviewer, database-reviewer, e2e-reviewer,
+      user-workflow-reviewer, compliance-agent, researcher, merge-resolver,
+      bootstrap, prd-bootstrap, strategic-critic, tactical-critic
+Utility: build-fixer, drift-scanner, explore
 ```
 
 ### Hooks (9 files in ~/.claude/hooks/)
@@ -123,10 +124,14 @@ start-task-sentinel.mjs
 
 | File | Purpose |
 |------|---------|
-| `taskplex-documentation.md` | Complete technical documentation (verified 48/48 checks) |
+| `taskplex-documentation.md` | Complete technical documentation |
 | `memplex-integration.md` | Memplex integration spec + combined roadmap |
 | `interrupt-handling.md` | Interrupt handling design (simplified to natural conversation) |
 | `skill-evolution.md` | Skill evolution system design (copy of contract file) |
+| `harness-engineering-gaps.md` | Harness gap analysis: narrative, verification, Playwright, drift |
+| `multi-runtime-plan.md` | Cross-runtime distribution plan (Cursor, Codex, Gemini, Pi, OpenCode, Windsurf) |
+| `runtime-research-april-2026.md` | Latest runtime extensibility research |
+| `test-plan.md` | Comprehensive test plan for all features (15 tests) |
 | `board-architecture.md` | CEO & Board multi-agent decision system for pi |
 | `business-agent-framework.md` | Enterprise agent deployment research synthesis |
 | `taskplex-pi-gap-analysis.md` | Claude Code → pi hook mapping with gap analysis |
@@ -135,20 +140,31 @@ start-task-sentinel.mjs
 ## What's Built vs What's Designed
 
 ### Built and Active
-- All commands, hooks, phase files, contract files, agent definitions
+- All commands (5), hooks (9), phase files (6), contract files (8), agent definitions (19+3)
+- Three routes: Light / Standard (default, multi-agent) / Blueprint (architect + waves)
 - Adaptive interaction model (v2) with flag-based gates
-- Implementation gate enforcement (team/blueprint delegation)
-- Memplex integration (optional, graceful degradation)
+- Three-contract chain: intent traceability → test plan → verification
+- Verification agent (adversarial, two modes: test-plan + verify)
+- Anti-rationalization review standards across all reviewers
+- Implementation gate enforcement (standard/blueprint delegation)
+- Memplex integration (optional, graceful degradation, pre-spawn context assembly)
 - Skill evolution pipeline (signal detection + evolutions.json + /solidify)
-- Goal traceability (AC → INTENT.md mapping)
+- Goal traceability (AC → INTENT.md) + intent traceability (AC → architecture)
+- Narrative progress artifact (task narrative in progress.md, injected on resume)
+- Playwright MCP for visual/browser verification
+- Drift detection (/drift command + drift-scanner agent)
+- Verification commands in agent handoffs (mandatory self-verification)
 - Implementation coherence check (haiku, fast, pre-build-gate)
 - Task list lifecycle (create → refine → update → recreate on resume)
-- User visibility rules (inline presentation, pre-spawn status)
+- Presentation detail levels (structured summaries, not full artifacts or terse one-liners)
 - Frontend development skill (standalone, works in any agent)
-- 7 split review agents (was 1 unified reviewer)
+- 7 split review agents + verification agent + drift scanner (was 1 unified reviewer)
+- OfficeCLI MCP for document generation
 
 ### Designed but Not Built
+- Multi-runtime distribution — Cursor, Codex, Gemini, Pi, OpenCode, Windsurf (plan in `multi-runtime-plan.md`)
 - Pi plugin — fully specified in `taskplex-pi-plugin.md`
 - Board architecture — designed in `board-architecture.md`
+- Memplex HTTP API — needed for Pi integration (no MCP in Pi)
 - Skill performance tracking — deferred until multi-agent is default
 - Issue relations/dependencies — deferred, partially covered by prd-state.json

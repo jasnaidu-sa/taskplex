@@ -430,9 +430,11 @@ tp-session-start reads manifest + checkpoint ───────────�
 
 ## 7. Subagent Architecture
 
-### 7.1 Core Principle: Write to Disk, Return a Summary
+### 7.1 Core Principle: Write to Disk, Return Structured Summary
 
-Agents write detailed output to `.claude-task/{taskId}/` and return 5-15 lines. The orchestrator then **reads the artifact and presents it inline** to the user — files are for persistence, the conversation is where the user reviews.
+Agents write detailed output to `.claude-task/{taskId}/` and return a **structured working summary** (~20-40 lines). Not a terse 3-liner, not the full artifact. The orchestrator presents this summary inline — files are for persistence, the conversation is where the user reviews.
+
+Summary format: component/section name + what it does + files + key decisions + which ACs it addresses.
 
 ### 7.2 Memplex Context Assembly
 
@@ -450,14 +452,15 @@ If memplex unavailable: block omitted, agent gets spec + brief + conventions onl
 | Agent | Model | Can Edit | Purpose |
 |-------|-------|:---:|---------|
 | **planning-agent** | sonnet | No | Write spec.md from brief, interact with user |
-| **architect** | opus | No | Design architecture, write worker briefs |
-| **implementation-agent** | sonnet | **Yes** | Implement code changes per spec |
-| **security-reviewer** | sonnet | No | OWASP-focused security scan, CVE lookups |
+| **architect** | opus | No | Design architecture, write worker briefs, structured summary return |
+| **implementation-agent** | sonnet | **Yes** | Implement code changes per spec, mandatory self-verification |
+| **verification-agent** | sonnet | No | Adversarial testing — tries to break code. Two modes: test-plan (pre-impl) and verify (QA). Cannot edit files. |
+| **security-reviewer** | sonnet | No | OWASP-focused security scan, CVE lookups via WebSearch |
 | **closure-agent** | haiku | No | Requirements traceability, brief verification, spec critic |
 | **code-reviewer** | sonnet | No | Code quality, convention compliance |
-| **hardening-reviewer** | sonnet | No | Production readiness, runs audit tools |
+| **hardening-reviewer** | sonnet | No | Production readiness, runs audit tools via Bash |
 | **database-reviewer** | sonnet | No | Query correctness, schema, migration safety |
-| **e2e-reviewer** | sonnet | No | Live UI validation via agent-browser |
+| **e2e-reviewer** | sonnet | No | Live UI validation via Playwright MCP (preferred) or agent-browser (fallback) |
 | **user-workflow-reviewer** | haiku | No | Navigation coherence, orphaned features |
 | **compliance-agent** | haiku | No | Final gate — process + convention audit |
 | **researcher** | sonnet | No | External research, web search |
@@ -466,6 +469,9 @@ If memplex unavailable: block omitted, agent gets spec + brief + conventions onl
 | **prd-bootstrap** | opus | No | Initiative mode PRD generation |
 | **strategic-critic** | opus | No | Strategic review of PRDs |
 | **tactical-critic** | sonnet | No | Tactical review of per-feature specs |
+| **drift-scanner** | haiku | No | Read-only codebase drift scan (conventions, deps, imports, dead code) |
+
+**Shared reference**: `review-standards.md` — anti-rationalization rules, evidence requirements, adversarial mindset. Referenced by all review agents.
 
 ### 7.4 Agent Tool Permissions
 
@@ -500,9 +506,51 @@ Every agent transition produces a structured record in `manifest.workerHandoffs[
 }
 ```
 
-### 7.6 Implementation Coherence Check
+### 7.6 Three-Contract Chain (Intent → Test → Verification)
+
+Quality assurance flows through three pre-committed contracts:
+
+```
+Brief (ACs)
+    ▼
+1. INTENT CONTRACT (Phase A.3)
+   AC-1.1 → Wave 0: Auth ✓
+   AC-2.1 → Wave 1: Dashboard ✓
+   AC-3.1 → NOT MAPPED ⚠️  ← caught before implementation
+   "Every requirement has a home in the plan"
+    ▼
+2. TEST CONTRACT (Phase A.3b)
+   AC-1.1 → "I will: POST /register, POST /login, test expired token"
+   AC-2.1 → "I will: GET /dashboard, check streaming, verify stats"
+   "Every feature has a pre-committed test"
+    ▼
+3. VERIFICATION (QA 4.5.4)
+   Execute pre-committed tests
+   Run adversarial probes (boundary, concurrency, injection, etc.)
+   "Every test was run with command+output evidence"
+```
+
+### 7.7 Verification Agent (Adversarial Testing)
+
+The verification agent operates in two modes:
+
+**Mode 1 — Test Plan** (pre-implementation, Phase A.3b): Reads the spec, produces `test-plan.md` listing exact checks and adversarial probes it will run. The implementation agent sees this plan. Sprint contract pattern.
+
+**Mode 2 — Verify** (QA Step 4.5.4): Executes the pre-committed test plan. Must run commands for evidence — code reading rejected. At least 3 adversarial probes mandatory. Anti-rationalization prompts prevent skip-and-pass behavior.
+
+Cannot edit files. Reports bugs to the orchestrator for the bug fix loop.
+
+### 7.8 Implementation Coherence Check
 
 After each agent returns, before build gate: spawn closure-agent (haiku) for a fast spec-vs-code check. If DRIFT detected, one revision round. Prevents design drift from compounding before validation.
+
+### 7.9 Narrative Progress (Cold Start Recovery)
+
+`progress.md` includes a Task Narrative section assembled by the heartbeat hook:
+- Task description, approach (from brief.md), current focus, key decisions, blockers, next steps
+- Phase transition log with narrative summaries
+- Injected ABOVE the phase checklist on session resume (first thing LLM reads)
+- Included in pre-compact checkpoints
 
 ---
 
@@ -520,10 +568,12 @@ Central state file. Key fields:
 | Validation | `validation.*` (per-gate results) |
 | Quality | `qualityProfile`, `degradations`, `overrides`, `escalations` |
 | Memplex | `memplexAvailable`, `memplexContext`, `knowledgeSaved` |
-| Goals | `goalTraceability` (AC-to-INTENT mapping) |
+| Goals | `goalTraceability` (AC-to-INTENT mapping), `intentTraceability` (AC-to-architecture mapping) |
 | Evolution | `skillEvolution` (signal, evolution ID, type) |
+| Drift | `driftBaseline` (drift index at task start for before/after comparison) |
+| Completeness | `completenessCheck` (endpoint-to-frontend coverage), `frontendParity` |
 | Git | `git.*` (branch, commits, PR) |
-| Workers | `workerHandoffs` |
+| Workers | `workerHandoffs`, `waveProgress` |
 
 ### 8.2 Task List Lifecycle
 
@@ -616,9 +666,10 @@ Signal Detection (keyword-based, no LLM)  →  Attribution (which skill?)
 ### Commands
 ```
 ~/.claude/commands/
-├── taskplex.md, tp.md        # Main commands
+├── taskplex.md, tp.md        # Main commands (Light/Standard/Blueprint routes)
 ├── plan.md                   # /plan strategic planning
 ├── solidify.md               # /solidify skill evolution merge
+├── drift.md                  # /drift codebase drift scanner
 └── taskplex-adapter-checklist.md
 ```
 
@@ -636,18 +687,20 @@ Signal Detection (keyword-based, no LLM)  →  Attribution (which skill?)
 └── start-task-sentinel.mjs   # Non-edit tool counting
 ```
 
-### Agents (17 core + 2 utility)
+### Agents (19 core + 3 utility)
 ```
 ~/.claude/agents/core/
-├── architect.md              # Opus architecture design
-├── planning-agent.md         # Spec writing + user interaction
-├── implementation-agent.md   # Code implementation
+├── architect.md              # Opus architecture design (structured summary return)
+├── planning-agent.md         # Spec writing + user interaction (structured summary)
+├── implementation-agent.md   # Code implementation (mandatory self-verification)
+├── verification-agent.md     # Adversarial testing — two modes: test-plan + verify
+├── review-standards.md       # Shared anti-rationalization rules for all reviewers
 ├── security-reviewer.md      # OWASP security scan + CVE lookups
 ├── closure-agent.md          # Requirements verification + spec critic
 ├── code-reviewer.md          # Code quality + conventions
 ├── hardening-reviewer.md     # Production readiness + audit tools
 ├── database-reviewer.md      # SQL/schema/migration review
-├── e2e-reviewer.md           # Live UI validation (agent-browser)
+├── e2e-reviewer.md           # Live UI validation (Playwright MCP preferred, agent-browser fallback)
 ├── user-workflow-reviewer.md # Navigation coherence
 ├── compliance-agent.md       # Final gate — process audit
 ├── researcher.md             # External research
@@ -659,6 +712,7 @@ Signal Detection (keyword-based, no LLM)  →  Attribution (which skill?)
 
 ~/.claude/agents/utility/
 ├── build-fixer.md            # Fix build/review issues
+├── drift-scanner.md          # Read-only codebase drift detection
 └── explore.md                # Codebase exploration
 ```
 
@@ -701,5 +755,17 @@ Without it, the orchestrator in blueprint/team mode would code inline instead of
 ### Why the coherence check?
 Catches design drift during implementation (one haiku call) rather than waiting for the full validation pipeline. Saves a validation → build-fix → re-validation cycle when an agent builds something adjacent to the spec.
 
+### Why the three-contract chain?
+Inspired by Anthropic's harness engineering research (sprint contracts). The generator-evaluator pattern works better when they pre-agree on what "done" looks like. Intent contract (ACs → architecture), test contract (spec → test plan), verification (execute tests) — each catches gaps at the right stage.
+
+### Why the anti-rationalization prompts?
+LLMs are biased toward their own output. The verification agent is explicitly told the exact excuses it will generate to skip checks ("the code looks correct based on my reading" → "reading is not verification, run it"). This is from Claude Code's internal verification agent design.
+
+### Why presentation detail levels?
+Full artifacts overwhelm (~500 lines). Terse summaries (~3 lines) lose context. Structured working summaries (~20-30 lines) are the sweet spot — enough to review and give feedback in the chat without opening files.
+
 ### Why the invariant floor?
 Four gates cannot be disabled: security, closure, compliance, build. Prevents convention overrides or lean profiles from skipping critical quality checks.
+
+### Why drift detection between tasks?
+Validation is per-task. Between tasks, nothing watches for convention drift, dependency rot, or test coverage erosion. The `/drift` command and drift-scanner agent provide a periodic hygiene check.

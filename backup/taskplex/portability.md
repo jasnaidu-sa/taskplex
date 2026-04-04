@@ -33,7 +33,7 @@ These components define *what* TaskPlex does. Any adapter must preserve these se
 ### Phase System
 - **Phases**: init → brief → analysis → planning → execution → validation → hardening → completion
 - **Phase transitions**: Explicit manifest.phase updates, emitted as trace events
-- **Route selection**: Standard (single agent), Team (multi-agent), Blueprint (opus architect + multi-agent + worktrees) — user-selected via flags or menu
+- **Route selection**: Light (minimal + single agent), Standard (multi-agent + tactical critic), Blueprint (opus architect + critics + multi-agent + waves) — user-selected via flags or menu
 
 ### Quality Profiles
 - **lean**: Minimal validation, no extra artifacts
@@ -164,8 +164,9 @@ Claude Code writes `~/.claude/sessions/sess-{pid}.json` for the Agent World Viz 
 
 | Command | Core Behavior |
 |---------|---------------|
-| `/taskplex` | Entry point with route auto-selection |
-| `/taskplex --prd` | Multi-feature PRD mode |
+| `/taskplex` | Entry point with route auto-selection (3 routes: light, standard, blueprint) |
+| `/taskplex --light` | Minimal design, single agent, self-review |
+| `/taskplex --blueprint` | Architect + critics + multi-agent + waves |
 | `/taskplex --plan PLAN-{id}` | Execute a pre-validated plan |
 | `/plan` | Standalone planning (produces lifecycle-validated plans) |
 | `/harden` | Standalone hardening check |
